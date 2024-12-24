@@ -86,10 +86,12 @@ class TrieNode:
         return self.frequency<other.frequency   
     
 class HuffmanTrie:
-    def __init__(self, int_list):
+    def __init__(self, int_list, width, height):
         self.root=None
         self.character_encoding={}
         result=self.encode(int_list)
+        with open('compressed_file.txt', 'w') as file:
+            file.write(f"{width} {height} {result}")
         print(len(result))
         assert (self.decode(result)==int_list).all()
     
@@ -152,7 +154,7 @@ class HuffmanTrie:
                 result.append(node.is_end_of_word)
                 node=self.root
         return result
-ht=HuffmanTrie(rle_result)
+ht=HuffmanTrie(rle_result, image_array.shape[0], image_array.shape[1])  
 # ht.encode()
 
 # TODO -> Implement Inverse DCT, figure out the quantization matrix and plot the error vs byte storage. Try to implement Lempel-Ziv for accurate compression.
