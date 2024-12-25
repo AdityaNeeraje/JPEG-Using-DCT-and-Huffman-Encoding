@@ -69,7 +69,7 @@ def standard_dct(array, type=2, ortho=True):
 if len(sys.argv)>1:
     quantization_value=int(sys.argv[1])
 else:
-    quantization_value=16
+    quantization_value=25
 quantization_matrix=np.ones((8, 8))*quantization_value
 
 quantized_image_array=two_dimensional_dct(image_array).T
