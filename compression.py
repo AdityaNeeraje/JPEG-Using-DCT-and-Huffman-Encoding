@@ -70,15 +70,36 @@ if len(sys.argv)>1:
     quantization_value=int(sys.argv[1])
 else:
     quantization_value=25
-quantization_matrix=np.ones((8, 8))*quantization_value
+quantization_matrix=np.array([
+    [16, 11, 10, 16, 24, 40, 51, 61],
+    [12, 12, 14, 19, 26, 58, 60, 55],
+    [14, 13, 16, 24, 40, 57, 69, 56],
+    [14, 17, 22, 29, 51, 87, 80, 62],
+    [18, 22, 37, 56, 68, 109, 103, 77],
+    [24, 35, 55, 64, 81, 104, 113, 92],
+    [49, 64, 78, 87, 103, 121, 120, 101],
+    [72, 92, 95, 98, 112, 100, 103, 99]
+])*quantization_value/25
 
 quantized_image_array=two_dimensional_dct(image_array).T
 # print(np.max(quantized_image_array), np.min(quantized_image_array))
+result=np.zeros(quantized_image_array.shape[0]*quantized_image_array.shape[1])
 for i in range(0, len(quantized_image_array), 8):
     for j in range(0, len(quantized_image_array.T), 8):
         # print(i, j)
-        quantized_image_array[i:i+8, j:j+8]=np.round(quantized_image_array[i:i+8, j:j+8]/quantization_matrix)
-result=(np.round(quantized_image_array)).flatten()
+        result[i*len(quantized_image_array.T)+8*j:i*len(quantized_image_array.T)+8*j+64]=(np.round(quantized_image_array[i:i+8, j:j+8]/quantization_matrix)).flatten()
+# with open('quantized_image_array2.txt', 'w') as file:
+#     for i in range(len(quantized_image_array)):
+#         if i%8!=0:
+#             continue
+#         for j in range(len(quantized_image_array.T)):
+#             if j%8==0:
+#                 file.write(f"{quantized_image_array[i, j]} ")
+#         file.write('\n')
+l=len(result)
+if l>64:
+    for i in range(0, l-64, 64):
+        result[l-64-i]-=result[l-128-i]
 # Note that 0 is actually slightly better than 1 as default, since 1 -> 3 bits, 0 -> 1 bit later on
 rle_result=[result[0], 0]
 for value in result[1:]:
@@ -182,7 +203,15 @@ def invert_RLE(array):
         result+=[array[i]]*(int(array[i+1])+1)
     return np.array(result)
 
-inverted_result=invert_RLE(ht.decode(ht.filepath)).reshape(image_array.shape)
+inverted_result=invert_RLE(ht.decode(ht.filepath))
+if l>64:
+    for i in range(0, l-64, 64):
+        inverted_result[i+64]+=inverted_result[i]
+reshaped_inverted_result=np.zeros_like(quantized_image_array)
+for i in range(0, len(reshaped_inverted_result), 8):
+    for j in range(0, len(reshaped_inverted_result.T), 8):
+        reshaped_inverted_result[i:i+8, j:j+8]=inverted_result[i*len(reshaped_inverted_result.T)+8*j:i*len(reshaped_inverted_result.T)+8*j+64].reshape(8, 8)
+inverted_result=reshaped_inverted_result
 # TODO -> Implement Inverse DCT, figure out the quantization matrix and plot the error vs byte storage. Try to implement Lempel-Ziv for accurate compression.
 def inverse_DCT(array, ortho=True):
     if not ortho:
