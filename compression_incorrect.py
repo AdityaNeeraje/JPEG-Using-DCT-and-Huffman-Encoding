@@ -110,7 +110,6 @@ def rle(array):
             result.append(value)
             result.append(0)
     return np.array(result)
-rle_result=rle(result)
 
 class TrieNode:
     def __init__(self, value=1e10, frequency=0):
@@ -209,13 +208,13 @@ def invert_RLE(array):
 def intercalate_64(arr1, arr2):
     assert len(arr1)==len(arr2)*63
     result=np.zeros(len(arr1)+len(arr2))
-    for i in range(0, len(result), 64):
+    for i in range(0, len(arr1), 63):
         result[i]=arr2[i//64]
-        result[i+1:i+64]=arr1[(i//64)*63:(i//64)*63+63]
+        result[i+1:i+64]=arr1[i:i+63]
     return np.array(result)
 
+print(len(invert_RLE(ht.decode(ht.filepath))), len(invert_RLE(ht2.decode(ht2.filepath))))
 inverted_result=intercalate_64(invert_RLE(ht.decode(ht.filepath)), invert_RLE(ht2.decode(ht2.filepath)))
-
 if l>64:
     for i in range(0, l-64, 64):
         inverted_result[i+64]+=inverted_result[i]
