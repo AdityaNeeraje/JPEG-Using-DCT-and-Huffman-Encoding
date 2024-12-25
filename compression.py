@@ -5,8 +5,8 @@ from queue import PriorityQueue
 
 image=Image.open('coil-20-unproc/obj1__0.png')
 image_array=np.array(image)
-
-image_numbers=image_array.flatten()
+original_shape=image_array.shape
+image_array=np.pad(image_array, pad_width=((0, (8-image_array.shape[0]%8)%8), (0, (8-image_array.shape[1]%8)%8)), mode='edge')
 
 array=image_array
 
@@ -64,7 +64,16 @@ def standard_dct(array, type=2, ortho=True):
 # standard_dct_image_array_2=np.array([standard_dct(standard_dct_image_array.T[i]) for i in range(len(standard_dct_image_array.T))])
                                 
 # print(np.linalg.norm(two_dimensional_dct(image_array)-standard_dct_image_array_2))
-result=(np.round(two_dimensional_dct(image_array)/16)).flatten()
+
+quantization_matrix=np.ones((8, 8))*16
+
+quantized_image_array=two_dimensional_dct(image_array).T
+# print(np.max(quantized_image_array), np.min(quantized_image_array))
+for i in range(0, len(quantized_image_array), 8):
+    for j in range(0, len(quantized_image_array.T), 8):
+        # print(i, j)
+        quantized_image_array[i:i+8, j:j+8]=np.round(quantized_image_array[i:i+8, j:j+8]/quantization_matrix)
+result=(np.round(quantized_image_array)).flatten()
 # Note that 0 is actually slightly better than 1 as default, since 1 -> 3 bits, 0 -> 1 bit later on
 rle_result=[result[0], 0]
 for value in result[1:]:
@@ -86,14 +95,15 @@ class TrieNode:
         return self.frequency<other.frequency   
     
 class HuffmanTrie:
-    def __init__(self, int_list, width, height):
+    def __init__(self, int_list, original_shape, width, height):
         self.root=None
         self.character_encoding={}
         result=self.encode(int_list)
-        with open('compressed_file.txt', 'w') as file:
-            file.write(f"{width} {height} {result}")
+        self.filepath='compressed_file.txt'
+        with open(self.filepath, 'w') as file:
+            file.write(f"{original_shape[0]} {original_shape[1]} {width} {height} {result}")
         print(len(result))
-        assert (self.decode(result)==int_list).all()
+        assert (self.decode(self.filepath)==int_list).all()
     
     def insert(self, string, value):
         node=self.root
@@ -142,7 +152,10 @@ class HuffmanTrie:
             dfs(node.right, string+'1')
         dfs(self.root, '')
     
-    def decode(self, string):
+    def decode(self, filepath):
+        with open(filepath, 'r') as file:
+            original_width, original_height, width, height, string=file.read().split()
+            width, height=int(width), int(height)
         result=[]
         node=self.root
         for char in string:
@@ -153,8 +166,26 @@ class HuffmanTrie:
             if node.is_end_of_word!=1e10:
                 result.append(node.is_end_of_word)
                 node=self.root
-        return result
-ht=HuffmanTrie(rle_result, image_array.shape[0], image_array.shape[1])  
-# ht.encode()
+        return np.array(result)
+ht=HuffmanTrie(rle_result, original_shape, image_array.shape[0], image_array.shape[1])  
 
+def invert_RLE(array):
+    result=[]
+    for i in range(0, len(array), 2):
+        result+=[array[i]]*(int(array[i+1])+1)
+    return np.array(result)
+
+inverted_result=invert_RLE(ht.decode(ht.filepath)).reshape(image_array.shape)
 # TODO -> Implement Inverse DCT, figure out the quantization matrix and plot the error vs byte storage. Try to implement Lempel-Ziv for accurate compression.
+def inverse_DCT(array):
+    for i in range(0, len(array), 8):
+        for j in range(0, len(array.T), 8):
+            array[i:i+8, j:j+8]=idct(idct(array[i:i+8, j:j+8].T, norm='ortho').T, norm='ortho')
+    return array
+
+for i in range(0, len(quantized_image_array), 8):
+    for j in range(0, len(quantized_image_array.T), 8):
+        inverted_result[i:i+8, j:j+8]*=quantization_matrix
+
+print(np.linalg.norm(image_array[0:original_shape[0], 0:original_shape[1]]-inverse_DCT(inverted_result)[0:original_shape[0], 0:original_shape[1]]))
+# print(image_array[0:original_shape[0], 0:original_shape[1]].shape, original_shape)
