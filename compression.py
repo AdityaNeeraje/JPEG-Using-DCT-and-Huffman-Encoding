@@ -101,15 +101,14 @@ if l>64:
     for i in range(0, l-64, 64):
         result[l-64-i]-=result[l-128-i]
 # Note that 0 is actually slightly better than 1 as default, since 1 -> 3 bits, 0 -> 1 bit later on
-def rle(array):
-    result=[array[0], 0]
-    for value in array[1:]:
-        if value==result[-2]:
-            result[-1]+=1
-        else:
-            result.append(value)
-            result.append(0)
-    return np.array(result)
+rle_result=[result[0], 0]
+for value in result[1:]:
+    if value==rle_result[-2]:
+        rle_result[-1]+=1
+    else:
+        rle_result.append(value)
+        rle_result.append(0)
+rle_result=np.array(rle_result)
 
 class TrieNode:
     def __init__(self, value=1e10, frequency=0):
@@ -122,11 +121,11 @@ class TrieNode:
         return self.frequency<other.frequency   
     
 class HuffmanTrie:
-    def __init__(self, int_list, original_shape, width, height, filepath='compressed_file.txt'):
+    def __init__(self, int_list, original_shape, width, height):
         self.root=None
         self.character_encoding={}
         result=self.encode(int_list)
-        self.filepath=filepath
+        self.filepath='compressed_file.txt'
         with open(self.filepath, 'w') as file:
             file.write(f"{original_shape[0]} {original_shape[1]} {width} {height} {result}")
         # with open('encoding.json', 'w') as file:
@@ -184,6 +183,7 @@ class HuffmanTrie:
     def decode(self, filepath):
         with open(filepath, 'r') as file:
             original_width, original_height, width, height, string=file.read().split()
+            width, height=int(width), int(height)
         result=[]
         node=self.root
         for char in string:
@@ -195,9 +195,7 @@ class HuffmanTrie:
                 result.append(node.is_end_of_word)
                 node=self.root
         return np.array(result)
-ht=HuffmanTrie(rle(result[[i for i in range(len(result)) if i%64 != 0]]), original_shape, image_array.shape[0], image_array.shape[1])  
-
-ht2=HuffmanTrie(rle(result[range(0, len(result), 64)]), original_shape, image_array.shape[0], image_array.shape[1], 'dc_compressed.txt')
+ht=HuffmanTrie(rle_result, original_shape, image_array.shape[0], image_array.shape[1])  
 
 def invert_RLE(array):
     result=[]
@@ -205,16 +203,7 @@ def invert_RLE(array):
         result+=[array[i]]*(int(array[i+1])+1)
     return np.array(result)
 
-def intercalate_64(arr1, arr2):
-    assert len(arr1)==len(arr2)*63
-    result=np.zeros(len(arr1)+len(arr2))
-    for i in range(0, len(arr1), 63):
-        result[i]=arr2[i//64]
-        result[i+1:i+64]=arr1[i:i+63]
-    return np.array(result)
-
-print(len(invert_RLE(ht.decode(ht.filepath))), len(invert_RLE(ht2.decode(ht2.filepath))))
-inverted_result=intercalate_64(invert_RLE(ht.decode(ht.filepath)), invert_RLE(ht2.decode(ht2.filepath)))
+inverted_result=invert_RLE(ht.decode(ht.filepath))
 if l>64:
     for i in range(0, l-64, 64):
         inverted_result[i+64]+=inverted_result[i]
