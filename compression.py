@@ -2,6 +2,7 @@ from PIL import Image
 import numpy as np
 from scipy.fft import dct, idct
 from queue import PriorityQueue
+import sys
 
 image=Image.open('coil-20-unproc/obj1__0.png')
 image_array=np.array(image)
@@ -65,7 +66,11 @@ def standard_dct(array, type=2, ortho=True):
                                 
 # print(np.linalg.norm(two_dimensional_dct(image_array)-standard_dct_image_array_2))
 
-quantization_matrix=np.ones((8, 8))*16
+if len(sys.argv)>1:
+    quantization_value=int(sys.argv[1])
+else:
+    quantization_value=16
+quantization_matrix=np.ones((8, 8))*quantization_value
 
 quantized_image_array=two_dimensional_dct(image_array).T
 # print(np.max(quantized_image_array), np.min(quantized_image_array))
@@ -102,6 +107,8 @@ class HuffmanTrie:
         self.filepath='compressed_file.txt'
         with open(self.filepath, 'w') as file:
             file.write(f"{original_shape[0]} {original_shape[1]} {width} {height} {result}")
+        # with open('encoding.json', 'w') as file:
+        #     file.write(str(self.character_encoding))
         print(len(result))
         assert (self.decode(self.filepath)==int_list).all()
     
@@ -177,15 +184,24 @@ def invert_RLE(array):
 
 inverted_result=invert_RLE(ht.decode(ht.filepath)).reshape(image_array.shape)
 # TODO -> Implement Inverse DCT, figure out the quantization matrix and plot the error vs byte storage. Try to implement Lempel-Ziv for accurate compression.
-def inverse_DCT(array):
+def inverse_DCT(array, ortho=True):
+    if not ortho:
+        norm='backward'
+    else:
+        norm='ortho'
     for i in range(0, len(array), 8):
         for j in range(0, len(array.T), 8):
-            array[i:i+8, j:j+8]=idct(idct(array[i:i+8, j:j+8].T, norm='ortho').T, norm='ortho')
+            array[i:i+8, j:j+8]=idct(idct(array[i:i+8, j:j+8].T, norm=norm).T, norm=norm)
     return array
 
 for i in range(0, len(quantized_image_array), 8):
     for j in range(0, len(quantized_image_array.T), 8):
         inverted_result[i:i+8, j:j+8]*=quantization_matrix
 
-print(np.linalg.norm(image_array[0:original_shape[0], 0:original_shape[1]]-inverse_DCT(inverted_result)[0:original_shape[0], 0:original_shape[1]]))
-# print(image_array[0:original_shape[0], 0:original_shape[1]].shape, original_shape)
+final_result=inverse_DCT(inverted_result)[0:original_shape[0], 0:original_shape[1]]
+image_array=image_array[0:original_shape[0], 0:original_shape[1]]
+print(np.sqrt(np.mean((image_array-final_result)**2)))
+
+if len(sys.argv)==1:
+    reconstructed_image=Image.fromarray(final_result)
+    reconstructed_image.show()
